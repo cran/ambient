@@ -25,8 +25,9 @@
 #' @param jitter The maximum distance a point can move from its start position
 #' during sampling of cell points.
 #'
-#' @return If `length(dim) == 2` a matrix, if `length(dim) == 3` a 3-dimensional
-#' array.
+#' @return For `noise_worley()` a matrix if `length(dim) == 2` or an array if
+#' `length(dim) == 3`. For `gen_worley()` a numeric vector matching the length of
+#' the input.
 #'
 #' @references Worley, Steven (1996). *A cellular texture basis function*. Proceedings of the 23rd annual conference on computer graphics and interactive techniques. pp. 291–294. ISBN 0-89791-746-4
 #'
@@ -36,9 +37,15 @@
 #' # Basic use
 #' noise <- noise_worley(c(100, 100))
 #'
-#' image(noise, col = grey.colors(256, 0, 1))
+#' plot(as.raster(normalise(noise)))
+#'
+#' # Using the generator and another value metric
+#' grid <- long_grid(seq(1, 10, length.out = 1000), seq(1, 10, length.out = 1000))
+#' grid$noise <- gen_worley(grid$x, grid$y, value = 'distance')
+#' plot(grid, noise)
 #'
 noise_worley <- function(dim, frequency = 0.01, distance = 'euclidean',
+                         fractal = 'none', octaves = 3, lacunarity = 2, gain = 0.5,
                    value = 'cell', distance_ind = c(1, 2), jitter = 0.45,
                    pertubation = 'none', pertubation_amplitude = 1) {
   distance <- match.arg(distance, distances)
@@ -46,22 +53,48 @@ noise_worley <- function(dim, frequency = 0.01, distance = 'euclidean',
   distance_ind <- distance_ind - 1
   value <- match.arg(value, values)
   value <- match(value, values) - 1
+  fractal <- match.arg(fractal, fractals)
+  fractal <- match(fractal, fractals) - 1
   pertubation <- match.arg(pertubation, pertubations)
   pertubation <- match(pertubation, pertubations) - 1
 
   if (length(dim) == 2) {
     noise <- worley_2d_c(dim[1], dim[2], seed = sample(.Machine$integer.max, size = 1),
-                         freq = frequency, dist = distance, value = value,
-                         dist2ind = distance_ind, jitter = jitter,
+                         freq = frequency, fractal = fractal, octaves = octaves,
+                         lacunarity = lacunarity, gain = gain,dist = distance,
+                         value = value, dist2ind = distance_ind, jitter = jitter,
                          pertube = pertubation, pertube_amp = pertubation_amplitude)
   } else if (length(dim) == 3) {
     noise <- worley_3d_c(dim[1], dim[2], dim[3], seed = sample(.Machine$integer.max, size = 1),
-                         freq = frequency, dist = distance, value = value,
-                         dist2ind = distance_ind, jitter = jitter,
+                         freq = frequency, fractal = fractal, octaves = octaves,
+                         lacunarity = lacunarity, gain = gain,dist = distance,
+                         value = value, dist2ind = distance_ind, jitter = jitter,
                          pertube = pertubation, pertube_amp = pertubation_amplitude)
     noise <- array(noise, dim)
   } else {
     stop('Worley noise only supports two or three dimensions', call. = FALSE)
   }
   noise
+}
+
+#' @rdname noise_worley
+#' @param x,y,z Coordinates to get noise value from
+#' @export
+gen_worley <- function(x, y = NULL, z = NULL, frequency = 1, seed = NULL,
+                       distance = 'euclidean', value = 'cell',
+                       distance_ind = c(1, 2), jitter = 0.45, ...) {
+  dims <- check_dims(x, y, z)
+  distance <- match.arg(distance, distances)
+  distance <- match(distance, distances) - 1
+  distance_ind <- distance_ind - 1
+  value <- match.arg(value, values)
+  value <- match(value, values) - 1
+  if (is.null(seed)) seed <- random_seed()
+  if (is.null(z)) {
+    gen_worley2d_c(dims$x, dims$y, frequency, seed, distance, value,
+                   distance_ind, jitter)
+  } else {
+    gen_worley3d_c(dims$x, dims$y, dims$z, frequency, seed, distance, value,
+                   distance_ind, jitter)
+  }
 }

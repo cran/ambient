@@ -28,8 +28,9 @@
 #' @param pertubation_amplitude The maximal pertubation distance from the
 #' origin. Ignored if `pertubation = 'none'`. Defaults to `1`.
 #'
-#' @return If `length(dim) == 2` a matrix, if `length(dim) == 3` a 3-dimensional
-#' array.
+#' @return For `noise_perlin()` a matrix if `length(dim) == 2` or an array if
+#' `length(dim) == 3`. For `gen_perlin()` a numeric vector matching the length of
+#' the input.
 #'
 #' @references
 #' Perlin, Ken (1985). *An Image Synthesizer*. SIGGRAPH Comput. Graph. 19
@@ -41,7 +42,12 @@
 #' # Basic use
 #' noise <- noise_perlin(c(100, 100))
 #'
-#' image(noise, col = grey.colors(256, 0, 1))
+#' plot(as.raster(normalise(noise)))
+#'
+#' # Using the generator
+#' grid <- long_grid(seq(1, 10, length.out = 1000), seq(1, 10, length.out = 1000))
+#' grid$noise <- gen_perlin(grid$x, grid$y)
+#' plot(grid, noise)
 #'
 noise_perlin <- function(dim, frequency = 0.01, interpolator = 'quintic',
                    fractal = 'fbm', octaves = 3, lacunarity = 2, gain = 0.5,
@@ -68,4 +74,23 @@ noise_perlin <- function(dim, frequency = 0.01, interpolator = 'quintic',
     stop('Perlin noise only supports two or three dimensions', call. = FALSE)
   }
   noise
+}
+
+#' @rdname noise_perlin
+#' @param x,y,z Coordinates to get noise value from
+#' @param seed The seed to use for the noise. If `NULL` a random seed will be
+#' used
+#' @param ... ignored
+#' @export
+gen_perlin <- function(x, y = NULL, z = NULL, frequency = 1, seed = NULL,
+                       interpolator = 'quintic', ...) {
+  dims <- check_dims(x, y, z)
+  interpolator <- match.arg(interpolator, interpolators)
+  interpolator <- match(interpolator, interpolators) - 1
+  if (is.null(seed)) seed <- random_seed()
+  if (is.null(z)) {
+    gen_perlin2d_c(dims$x, dims$y, frequency, seed, interpolator)
+  } else {
+    gen_perlin3d_c(dims$x, dims$y, dims$z, frequency, seed, interpolator)
+  }
 }

@@ -226,6 +226,19 @@ void FastNoise::CalculateFractalBounding()
   m_fractalBounding = 1.0f / ampFractal;
 }
 
+void FastNoise::CalculateSpectralGain()
+{
+  FN_DECIMAL h = 1.0;
+  FN_DECIMAL frequency = 1.0;
+
+  m_pSpectralWeights.clear();
+  for (int i = 0; i < m_octaves; i++) {
+    // Compute weight for each frequency.
+    m_pSpectralWeights.push_back(std::pow(frequency, -h));
+    frequency *= m_lacunarity;
+  }
+}
+
 void FastNoise::SetCellularDistance2Indices(int cellularDistanceIndex0, int cellularDistanceIndex1)
 {
   m_cellularDistanceIndex0 = std::min(cellularDistanceIndex0, cellularDistanceIndex1);
@@ -272,13 +285,13 @@ unsigned char FastNoise::Index4D_256(unsigned char offset, int x, int y, int z, 
 #define Z_PRIME 6971
 #define W_PRIME 1013
 
-static FN_DECIMAL ValCoord2D(int seed, int x, int y)
+static FN_DECIMAL ValCoord2D(int seed, long long x, long long y)
 {
-  int n = seed;
+  long long n = seed;
   n ^= X_PRIME * x;
   n ^= Y_PRIME * y;
 
-  return (n * n * n * 60493) / FN_DECIMAL(2147483648);
+  return (double(n) * n * n * 60493) / FN_DECIMAL(2147483648);
 }
 static FN_DECIMAL ValCoord3D(int seed, int x, int y, int z)
 {
@@ -456,9 +469,9 @@ FN_DECIMAL FastNoise::GetNoise(FN_DECIMAL x, FN_DECIMAL y) const
     case CellValue:
     case NoiseLookup:
     case Distance:
-      return SingleCellular(x, y);
+      return SingleCellular(0, x, y);
     default:
-      return SingleCellular2Edge(x, y);
+      return SingleCellular2Edge(0, x, y);
     }
   case WhiteNoise:
     return GetWhiteNoise(x, y);
@@ -578,8 +591,16 @@ FN_DECIMAL FastNoise::SingleValueFractalBillow(FN_DECIMAL x, FN_DECIMAL y, FN_DE
 
 FN_DECIMAL FastNoise::SingleValueFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
 {
-  FN_DECIMAL sum = 1 - FastAbs(SingleValue(m_perm[0], x, y, z));
-  FN_DECIMAL amp = 1;
+  FN_DECIMAL sig = 1 - FastAbs(SingleValue(m_perm[0], x, y, z));
+  sig *= sig;
+  FN_DECIMAL sum = sig * m_pSpectralWeights[0];
+  FN_DECIMAL amp = sig * m_gain;
+  if (amp > 1.0) {
+    amp = 1.0;
+  }
+  if (amp < 0.0) {
+    amp = 0.0;
+  }
   int i = 0;
 
   while (++i < m_octaves)
@@ -588,11 +609,23 @@ FN_DECIMAL FastNoise::SingleValueFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y, F
     y *= m_lacunarity;
     z *= m_lacunarity;
 
-    amp *= m_gain;
-    sum -= (1 - FastAbs(SingleValue(m_perm[i], x, y, z))) * amp;
+    sig = 1 - FastAbs(SingleValue(m_perm[i], x, y, z));
+    sig *= sig;
+    sig *= amp;
+
+    amp = sig * m_gain;
+    if (amp > 1.0) {
+      amp = 1.0;
+    }
+    if (amp < 0.0) {
+      amp = 0.0;
+    }
+
+
+    sum += (sig * m_pSpectralWeights[i]);
   }
 
-  return sum;
+  return (sum * 1.25) - 1.0;
 }
 
 FN_DECIMAL FastNoise::GetValue(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
@@ -609,7 +642,7 @@ FN_DECIMAL FastNoise::SingleValue(unsigned char offset, FN_DECIMAL x, FN_DECIMAL
   int y1 = y0 + 1;
   int z1 = z0 + 1;
 
-  FN_DECIMAL xs, ys, zs;
+  FN_DECIMAL xs = 0.0, ys = 0.0, zs = 0.0;
   switch (m_interp)
   {
   case Linear:
@@ -695,8 +728,16 @@ FN_DECIMAL FastNoise::SingleValueFractalBillow(FN_DECIMAL x, FN_DECIMAL y) const
 
 FN_DECIMAL FastNoise::SingleValueFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y) const
 {
-  FN_DECIMAL sum = 1 - FastAbs(SingleValue(m_perm[0], x, y));
-  FN_DECIMAL amp = 1;
+  FN_DECIMAL sig = 1 - FastAbs(SingleValue(m_perm[0], x, y));
+  sig *= sig;
+  FN_DECIMAL sum = sig * m_pSpectralWeights[0];
+  FN_DECIMAL amp = sig * m_gain;
+  if (amp > 1.0) {
+    amp = 1.0;
+  }
+  if (amp < 0.0) {
+    amp = 0.0;
+  }
   int i = 0;
 
   while (++i < m_octaves)
@@ -704,11 +745,23 @@ FN_DECIMAL FastNoise::SingleValueFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y) c
     x *= m_lacunarity;
     y *= m_lacunarity;
 
-    amp *= m_gain;
-    sum -= (1 - FastAbs(SingleValue(m_perm[i], x, y))) * amp;
+    sig = 1 - FastAbs(SingleValue(m_perm[i], x, y));
+    sig *= sig;
+    sig *= amp;
+
+    amp = sig * m_gain;
+    if (amp > 1.0) {
+      amp = 1.0;
+    }
+    if (amp < 0.0) {
+      amp = 0.0;
+    }
+
+
+    sum += (sig * m_pSpectralWeights[i]);
   }
 
-  return sum;
+  return (sum * 1.25) - 1.0;
 }
 
 FN_DECIMAL FastNoise::GetValue(FN_DECIMAL x, FN_DECIMAL y) const
@@ -723,7 +776,7 @@ FN_DECIMAL FastNoise::SingleValue(unsigned char offset, FN_DECIMAL x, FN_DECIMAL
   int x1 = x0 + 1;
   int y1 = y0 + 1;
 
-  FN_DECIMAL xs, ys;
+  FN_DECIMAL xs = 0.0, ys = 0.0;
   switch (m_interp)
   {
   case Linear:
@@ -806,8 +859,16 @@ FN_DECIMAL FastNoise::SinglePerlinFractalBillow(FN_DECIMAL x, FN_DECIMAL y, FN_D
 
 FN_DECIMAL FastNoise::SinglePerlinFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
 {
-  FN_DECIMAL sum = 1 - FastAbs(SinglePerlin(m_perm[0], x, y, z));
-  FN_DECIMAL amp = 1;
+  FN_DECIMAL sig = 1 - FastAbs(SinglePerlin(m_perm[0], x, y, z));
+  sig *= sig;
+  FN_DECIMAL sum = sig * m_pSpectralWeights[0];
+  FN_DECIMAL amp = sig * m_gain;
+  if (amp > 1.0) {
+    amp = 1.0;
+  }
+  if (amp < 0.0) {
+    amp = 0.0;
+  }
   int i = 0;
 
   while (++i < m_octaves)
@@ -816,11 +877,23 @@ FN_DECIMAL FastNoise::SinglePerlinFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y, 
     y *= m_lacunarity;
     z *= m_lacunarity;
 
-    amp *= m_gain;
-    sum -= (1 - FastAbs(SinglePerlin(m_perm[i], x, y, z))) * amp;
+    sig = 1 - FastAbs(SinglePerlin(m_perm[i], x, y, z));
+    sig *= sig;
+    sig *= amp;
+
+    amp = sig * m_gain;
+    if (amp > 1.0) {
+      amp = 1.0;
+    }
+    if (amp < 0.0) {
+      amp = 0.0;
+    }
+
+
+    sum += (sig * m_pSpectralWeights[i]);
   }
 
-  return sum;
+  return (sum * 1.25) - 1.0;
 }
 
 FN_DECIMAL FastNoise::GetPerlin(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
@@ -837,7 +910,7 @@ FN_DECIMAL FastNoise::SinglePerlin(unsigned char offset, FN_DECIMAL x, FN_DECIMA
   int y1 = y0 + 1;
   int z1 = z0 + 1;
 
-  FN_DECIMAL xs, ys, zs;
+  FN_DECIMAL xs = 0.0, ys = 0.0, zs = 0.0;
   switch (m_interp)
   {
   case Linear:
@@ -931,8 +1004,16 @@ FN_DECIMAL FastNoise::SinglePerlinFractalBillow(FN_DECIMAL x, FN_DECIMAL y) cons
 
 FN_DECIMAL FastNoise::SinglePerlinFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y) const
 {
-  FN_DECIMAL sum = 1 - FastAbs(SinglePerlin(m_perm[0], x, y));
-  FN_DECIMAL amp = 1;
+  FN_DECIMAL sig = 1 - FastAbs(SinglePerlin(m_perm[0], x, y));
+  sig *= sig;
+  FN_DECIMAL sum = sig * m_pSpectralWeights[0];
+  FN_DECIMAL amp = sig * m_gain;
+  if (amp > 1.0) {
+    amp = 1.0;
+  }
+  if (amp < 0.0) {
+    amp = 0.0;
+  }
   int i = 0;
 
   while (++i < m_octaves)
@@ -940,11 +1021,23 @@ FN_DECIMAL FastNoise::SinglePerlinFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y) 
     x *= m_lacunarity;
     y *= m_lacunarity;
 
-    amp *= m_gain;
-    sum -= (1 - FastAbs(SinglePerlin(m_perm[i], x, y))) * amp;
+    sig = 1 - FastAbs(SinglePerlin(m_perm[i], x, y));
+    sig *= sig;
+    sig *= amp;
+
+    amp = sig * m_gain;
+    if (amp > 1.0) {
+      amp = 1.0;
+    }
+    if (amp < 0.0) {
+      amp = 0.0;
+    }
+
+
+    sum += (sig * m_pSpectralWeights[i]);
   }
 
-  return sum;
+  return (sum * 1.25) - 1.0;
 }
 
 FN_DECIMAL FastNoise::GetPerlin(FN_DECIMAL x, FN_DECIMAL y) const
@@ -959,7 +1052,7 @@ FN_DECIMAL FastNoise::SinglePerlin(unsigned char offset, FN_DECIMAL x, FN_DECIMA
   int x1 = x0 + 1;
   int y1 = y0 + 1;
 
-  FN_DECIMAL xs, ys;
+  FN_DECIMAL xs = 0.0, ys = 0.0;
   switch (m_interp)
   {
   case Linear:
@@ -1048,8 +1141,16 @@ FN_DECIMAL FastNoise::SingleSimplexFractalBillow(FN_DECIMAL x, FN_DECIMAL y, FN_
 
 FN_DECIMAL FastNoise::SingleSimplexFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
 {
-  FN_DECIMAL sum = 1 - FastAbs(SingleSimplex(m_perm[0], x, y, z));
-  FN_DECIMAL amp = 1;
+  FN_DECIMAL sig = 1 - FastAbs(SingleSimplex(m_perm[0], x, y, z));
+  sig *= sig;
+  FN_DECIMAL sum = sig * m_pSpectralWeights[0];
+  FN_DECIMAL amp = sig * m_gain;
+  if (amp > 1.0) {
+    amp = 1.0;
+  }
+  if (amp < 0.0) {
+    amp = 0.0;
+  }
   int i = 0;
 
   while (++i < m_octaves)
@@ -1058,11 +1159,23 @@ FN_DECIMAL FastNoise::SingleSimplexFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y,
     y *= m_lacunarity;
     z *= m_lacunarity;
 
-    amp *= m_gain;
-    sum -= (1 - FastAbs(SingleSimplex(m_perm[i], x, y, z))) * amp;
+    sig = 1 - FastAbs(SingleSimplex(m_perm[i], x, y, z));
+    sig *= sig;
+    sig *= amp;
+
+    amp = sig * m_gain;
+    if (amp > 1.0) {
+      amp = 1.0;
+    }
+    if (amp < 0.0) {
+      amp = 0.0;
+    }
+
+
+    sum += (sig * m_pSpectralWeights[i]);
   }
 
-  return sum;
+  return (sum * 1.25) - 1.0;
 }
 
 FN_DECIMAL FastNoise::GetSimplex(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
@@ -1226,8 +1339,16 @@ FN_DECIMAL FastNoise::SingleSimplexFractalBillow(FN_DECIMAL x, FN_DECIMAL y) con
 
 FN_DECIMAL FastNoise::SingleSimplexFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y) const
 {
-  FN_DECIMAL sum = 1 - FastAbs(SingleSimplex(m_perm[0], x, y));
-  FN_DECIMAL amp = 1;
+  FN_DECIMAL sig = 1 - FastAbs(SingleSimplex(m_perm[0], x, y));
+  sig *= sig;
+  FN_DECIMAL sum = sig * m_pSpectralWeights[0];
+  FN_DECIMAL amp = sig * m_gain;
+  if (amp > 1.0) {
+    amp = 1.0;
+  }
+  if (amp < 0.0) {
+    amp = 0.0;
+  }
   int i = 0;
 
   while (++i < m_octaves)
@@ -1235,11 +1356,23 @@ FN_DECIMAL FastNoise::SingleSimplexFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y)
     x *= m_lacunarity;
     y *= m_lacunarity;
 
-    amp *= m_gain;
-    sum -= (1 - FastAbs(SingleSimplex(m_perm[i], x, y))) * amp;
+    sig = 1 - FastAbs(SingleSimplex(m_perm[i], x, y));
+    sig *= sig;
+    sig *= amp;
+
+    amp = sig * m_gain;
+    if (amp > 1.0) {
+      amp = 1.0;
+    }
+    if (amp < 0.0) {
+      amp = 0.0;
+    }
+
+
+    sum += (sig * m_pSpectralWeights[i]);
   }
 
-  return sum;
+  return (sum * 1.25) - 1.0;
 }
 
 FN_DECIMAL FastNoise::SingleSimplexFractalBlend(FN_DECIMAL x, FN_DECIMAL y) const
@@ -1493,8 +1626,16 @@ FN_DECIMAL FastNoise::SingleCubicFractalBillow(FN_DECIMAL x, FN_DECIMAL y, FN_DE
 
 FN_DECIMAL FastNoise::SingleCubicFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
 {
-  FN_DECIMAL sum = 1 - FastAbs(SingleCubic(m_perm[0], x, y, z));
-  FN_DECIMAL amp = 1;
+  FN_DECIMAL sig = 1 - FastAbs(SingleCubic(m_perm[0], x, y, z));
+  sig *= sig;
+  FN_DECIMAL sum = sig * m_pSpectralWeights[0];
+  FN_DECIMAL amp = sig * m_gain;
+  if (amp > 1.0) {
+    amp = 1.0;
+  }
+  if (amp < 0.0) {
+    amp = 0.0;
+  }
   int i = 0;
 
   while (++i < m_octaves)
@@ -1503,11 +1644,23 @@ FN_DECIMAL FastNoise::SingleCubicFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y, F
     y *= m_lacunarity;
     z *= m_lacunarity;
 
-    amp *= m_gain;
-    sum -= (1 - FastAbs(SingleCubic(m_perm[i], x, y, z))) * amp;
+    sig = 1 - FastAbs(SingleCubic(m_perm[i], x, y, z));
+    sig *= sig;
+    sig *= amp;
+
+    amp = sig * m_gain;
+    if (amp > 1.0) {
+      amp = 1.0;
+    }
+    if (amp < 0.0) {
+      amp = 0.0;
+    }
+
+
+    sum += (sig * m_pSpectralWeights[i]);
   }
 
-  return sum;
+  return (sum * 1.25) - 1.0;
 }
 
 FN_DECIMAL FastNoise::GetCubic(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
@@ -1622,8 +1775,16 @@ FN_DECIMAL FastNoise::SingleCubicFractalBillow(FN_DECIMAL x, FN_DECIMAL y) const
 
 FN_DECIMAL FastNoise::SingleCubicFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y) const
 {
-  FN_DECIMAL sum = 1 - FastAbs(SingleCubic(m_perm[0], x, y));
-  FN_DECIMAL amp = 1;
+  FN_DECIMAL sig = 1 - FastAbs(SingleCubic(m_perm[0], x, y));
+  sig *= sig;
+  FN_DECIMAL sum = sig * m_pSpectralWeights[0];
+  FN_DECIMAL amp = sig * m_gain;
+  if (amp > 1.0) {
+    amp = 1.0;
+  }
+  if (amp < 0.0) {
+    amp = 0.0;
+  }
   int i = 0;
 
   while (++i < m_octaves)
@@ -1631,11 +1792,23 @@ FN_DECIMAL FastNoise::SingleCubicFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y) c
     x *= m_lacunarity;
     y *= m_lacunarity;
 
-    amp *= m_gain;
-    sum -= (1 - FastAbs(SingleCubic(m_perm[i], x, y))) * amp;
+    sig = 1 - FastAbs(SingleCubic(m_perm[i], x, y));
+    sig *= sig;
+    sig *= amp;
+
+    amp = sig * m_gain;
+    if (amp > 1.0) {
+      amp = 1.0;
+    }
+    if (amp < 0.0) {
+      amp = 0.0;
+    }
+
+
+    sum += (sig * m_pSpectralWeights[i]);
   }
 
-  return sum;
+  return (sum * 1.25) - 1.0;
 }
 
 FN_DECIMAL FastNoise::GetCubic(FN_DECIMAL x, FN_DECIMAL y) const
@@ -1678,25 +1851,28 @@ FN_DECIMAL FastNoise::GetCellular(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) cons
   y *= m_frequency;
   z *= m_frequency;
 
+  return SingleCellularBase(0, x, y, z);
+}
+FN_DECIMAL FastNoise::SingleCellularBase(unsigned char offset, FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
+{
   switch (m_cellularReturnType)
   {
   case CellValue:
   case NoiseLookup:
   case Distance:
-    return SingleCellular(x, y, z);
+    return SingleCellular(offset, x, y, z);
   default:
-    return SingleCellular2Edge(x, y, z);
+    return SingleCellular2Edge(offset, x, y, z);
   }
 }
-
-FN_DECIMAL FastNoise::SingleCellular(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
+FN_DECIMAL FastNoise::SingleCellular(unsigned char offset, FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
 {
   int xr = FastRound(x);
   int yr = FastRound(y);
   int zr = FastRound(z);
 
   FN_DECIMAL distance = 999999;
-  int xc, yc, zc;
+  int xc = 0.0, yc = 0.0, zc = 0.0;
 
   switch (m_cellularDistanceFunction)
   {
@@ -1707,7 +1883,7 @@ FN_DECIMAL FastNoise::SingleCellular(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) c
       {
         for (int zi = zr - 1; zi <= zr + 1; zi++)
         {
-          unsigned char lutPos = Index3D_256(0, xi, yi, zi);
+          unsigned char lutPos = Index3D_256(offset, xi, yi, zi);
 
           FN_DECIMAL vecX = xi - x + CELL_3D_X[lutPos] * m_cellularJitter;
           FN_DECIMAL vecY = yi - y + CELL_3D_Y[lutPos] * m_cellularJitter;
@@ -1733,7 +1909,7 @@ FN_DECIMAL FastNoise::SingleCellular(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) c
       {
         for (int zi = zr - 1; zi <= zr + 1; zi++)
         {
-          unsigned char lutPos = Index3D_256(0, xi, yi, zi);
+          unsigned char lutPos = Index3D_256(offset, xi, yi, zi);
 
           FN_DECIMAL vecX = xi - x + CELL_3D_X[lutPos] * m_cellularJitter;
           FN_DECIMAL vecY = yi - y + CELL_3D_Y[lutPos] * m_cellularJitter;
@@ -1759,7 +1935,7 @@ FN_DECIMAL FastNoise::SingleCellular(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) c
       {
         for (int zi = zr - 1; zi <= zr + 1; zi++)
         {
-          unsigned char lutPos = Index3D_256(0, xi, yi, zi);
+          unsigned char lutPos = Index3D_256(offset, xi, yi, zi);
 
           FN_DECIMAL vecX = xi - x + CELL_3D_X[lutPos] * m_cellularJitter;
           FN_DECIMAL vecY = yi - y + CELL_3D_Y[lutPos] * m_cellularJitter;
@@ -1791,7 +1967,7 @@ FN_DECIMAL FastNoise::SingleCellular(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) c
   case NoiseLookup:
     assert(m_cellularNoiseLookup);
 
-    lutPos = Index3D_256(0, xc, yc, zc);
+    lutPos = Index3D_256(offset, xc, yc, zc);
     return m_cellularNoiseLookup->GetNoise(xc + CELL_3D_X[lutPos] * m_cellularJitter, yc + CELL_3D_Y[lutPos] * m_cellularJitter, zc + CELL_3D_Z[lutPos] * m_cellularJitter);
 
   case Distance:
@@ -1801,7 +1977,7 @@ FN_DECIMAL FastNoise::SingleCellular(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) c
   }
 }
 
-FN_DECIMAL FastNoise::SingleCellular2Edge(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
+FN_DECIMAL FastNoise::SingleCellular2Edge(unsigned char offset, FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
 {
   int xr = FastRound(x);
   int yr = FastRound(y);
@@ -1818,7 +1994,7 @@ FN_DECIMAL FastNoise::SingleCellular2Edge(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL
       {
         for (int zi = zr - 1; zi <= zr + 1; zi++)
         {
-          unsigned char lutPos = Index3D_256(0, xi, yi, zi);
+          unsigned char lutPos = Index3D_256(offset, xi, yi, zi);
 
           FN_DECIMAL vecX = xi - x + CELL_3D_X[lutPos] * m_cellularJitter;
           FN_DECIMAL vecY = yi - y + CELL_3D_Y[lutPos] * m_cellularJitter;
@@ -1840,7 +2016,7 @@ FN_DECIMAL FastNoise::SingleCellular2Edge(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL
       {
         for (int zi = zr - 1; zi <= zr + 1; zi++)
         {
-          unsigned char lutPos = Index3D_256(0, xi, yi, zi);
+          unsigned char lutPos = Index3D_256(offset, xi, yi, zi);
 
           FN_DECIMAL vecX = xi - x + CELL_3D_X[lutPos] * m_cellularJitter;
           FN_DECIMAL vecY = yi - y + CELL_3D_Y[lutPos] * m_cellularJitter;
@@ -1862,7 +2038,7 @@ FN_DECIMAL FastNoise::SingleCellular2Edge(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL
       {
         for (int zi = zr - 1; zi <= zr + 1; zi++)
         {
-          unsigned char lutPos = Index3D_256(0, xi, yi, zi);
+          unsigned char lutPos = Index3D_256(offset, xi, yi, zi);
 
           FN_DECIMAL vecX = xi - x + CELL_3D_X[lutPos] * m_cellularJitter;
           FN_DECIMAL vecY = yi - y + CELL_3D_Y[lutPos] * m_cellularJitter;
@@ -1897,30 +2073,126 @@ FN_DECIMAL FastNoise::SingleCellular2Edge(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL
     return 0;
   }
 }
+FN_DECIMAL FastNoise::GetCellularFractal(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
+{
+  x *= m_frequency;
+  y *= m_frequency;
+  z *= m_frequency;
 
+  switch (m_fractalType)
+  {
+  case FBM:
+    return SingleCellularFractalFBM(x, y, z);
+  case Billow:
+    return SingleCellularFractalBillow(x, y, z);
+  case RigidMulti:
+    return SingleCellularFractalRigidMulti(x, y, z);
+  default:
+    return 0;
+  }
+}
+FN_DECIMAL FastNoise::SingleCellularFractalFBM(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
+{
+  FN_DECIMAL sum = SingleCellularBase(m_perm[0], x, y, z);
+  FN_DECIMAL amp = 1;
+  int i = 0;
+
+  while (++i < m_octaves)
+  {
+    x *= m_lacunarity;
+    y *= m_lacunarity;
+    z *= m_lacunarity;
+
+    amp *= m_gain;
+    sum += SingleCellularBase(m_perm[i], x, y, z) * amp;
+  }
+
+  return sum * m_fractalBounding;
+}
+
+FN_DECIMAL FastNoise::SingleCellularFractalBillow(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
+{
+  FN_DECIMAL sum = FastAbs(SingleCellularBase(m_perm[0], x, y, z)) * 2 - 1;
+  FN_DECIMAL amp = 1;
+  int i = 0;
+
+  while (++i < m_octaves)
+  {
+    x *= m_lacunarity;
+    y *= m_lacunarity;
+    z *= m_lacunarity;
+
+    amp *= m_gain;
+    sum += (FastAbs(SingleCellularBase(m_perm[i], x, y, z)) * 2 - 1) * amp;
+  }
+
+  return sum * m_fractalBounding;
+}
+
+FN_DECIMAL FastNoise::SingleCellularFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y, FN_DECIMAL z) const
+{
+  FN_DECIMAL sig = 1 - FastAbs(SingleCellularBase(m_perm[0], x, y, z));
+  sig *= sig;
+  FN_DECIMAL sum = sig * m_pSpectralWeights[0];
+  FN_DECIMAL amp = sig * m_gain;
+  if (amp > 1.0) {
+    amp = 1.0;
+  }
+  if (amp < 0.0) {
+    amp = 0.0;
+  }
+  int i = 0;
+
+  while (++i < m_octaves)
+  {
+    x *= m_lacunarity;
+    y *= m_lacunarity;
+    z *= m_lacunarity;
+
+    sig = 1 - FastAbs(SingleCellularBase(m_perm[i], x, y, z));
+    sig *= sig;
+    sig *= amp;
+
+    amp = sig * m_gain;
+    if (amp > 1.0) {
+      amp = 1.0;
+    }
+    if (amp < 0.0) {
+      amp = 0.0;
+    }
+
+
+    sum += (sig * m_pSpectralWeights[i]);
+  }
+
+  return (sum * 1.25) - 1.0;
+}
 FN_DECIMAL FastNoise::GetCellular(FN_DECIMAL x, FN_DECIMAL y) const
 {
   x *= m_frequency;
   y *= m_frequency;
 
+  return SingleCellularBase(0, x, y);
+}
+FN_DECIMAL FastNoise::SingleCellularBase(unsigned char offset, FN_DECIMAL x, FN_DECIMAL y) const
+{
   switch (m_cellularReturnType)
   {
   case CellValue:
   case NoiseLookup:
   case Distance:
-    return SingleCellular(x, y);
+    return SingleCellular(offset, x, y);
   default:
-    return SingleCellular2Edge(x, y);
+    return SingleCellular2Edge(offset, x, y);
   }
 }
-
-FN_DECIMAL FastNoise::SingleCellular(FN_DECIMAL x, FN_DECIMAL y) const
+FN_DECIMAL FastNoise::SingleCellular(unsigned char offset, FN_DECIMAL x, FN_DECIMAL y) const
 {
   int xr = FastRound(x);
   int yr = FastRound(y);
 
   FN_DECIMAL distance = 999999;
-  int xc, yc;
+  int xc = 0.0, yc = 0.0;
 
   switch (m_cellularDistanceFunction)
   {
@@ -1930,7 +2202,7 @@ FN_DECIMAL FastNoise::SingleCellular(FN_DECIMAL x, FN_DECIMAL y) const
     {
       for (int yi = yr - 1; yi <= yr + 1; yi++)
       {
-        unsigned char lutPos = Index2D_256(0, xi, yi);
+        unsigned char lutPos = Index2D_256(offset, xi, yi);
 
         FN_DECIMAL vecX = xi - x + CELL_2D_X[lutPos] * m_cellularJitter;
         FN_DECIMAL vecY = yi - y + CELL_2D_Y[lutPos] * m_cellularJitter;
@@ -1951,7 +2223,7 @@ FN_DECIMAL FastNoise::SingleCellular(FN_DECIMAL x, FN_DECIMAL y) const
     {
       for (int yi = yr - 1; yi <= yr + 1; yi++)
       {
-        unsigned char lutPos = Index2D_256(0, xi, yi);
+        unsigned char lutPos = Index2D_256(offset, xi, yi);
 
         FN_DECIMAL vecX = xi - x + CELL_2D_X[lutPos] * m_cellularJitter;
         FN_DECIMAL vecY = yi - y + CELL_2D_Y[lutPos] * m_cellularJitter;
@@ -1972,7 +2244,7 @@ FN_DECIMAL FastNoise::SingleCellular(FN_DECIMAL x, FN_DECIMAL y) const
     {
       for (int yi = yr - 1; yi <= yr + 1; yi++)
       {
-        unsigned char lutPos = Index2D_256(0, xi, yi);
+        unsigned char lutPos = Index2D_256(offset, xi, yi);
 
         FN_DECIMAL vecX = xi - x + CELL_2D_X[lutPos] * m_cellularJitter;
         FN_DECIMAL vecY = yi - y + CELL_2D_Y[lutPos] * m_cellularJitter;
@@ -1999,7 +2271,7 @@ FN_DECIMAL FastNoise::SingleCellular(FN_DECIMAL x, FN_DECIMAL y) const
   case NoiseLookup:
     assert(m_cellularNoiseLookup);
 
-    lutPos = Index2D_256(0, xc, yc);
+    lutPos = Index2D_256(offset, xc, yc);
     return m_cellularNoiseLookup->GetNoise(xc + CELL_2D_X[lutPos] * m_cellularJitter, yc + CELL_2D_Y[lutPos] * m_cellularJitter);
 
   case Distance:
@@ -2009,7 +2281,7 @@ FN_DECIMAL FastNoise::SingleCellular(FN_DECIMAL x, FN_DECIMAL y) const
   }
 }
 
-FN_DECIMAL FastNoise::SingleCellular2Edge(FN_DECIMAL x, FN_DECIMAL y) const
+FN_DECIMAL FastNoise::SingleCellular2Edge(unsigned char offset, FN_DECIMAL x, FN_DECIMAL y) const
 {
   int xr = FastRound(x);
   int yr = FastRound(y);
@@ -2024,7 +2296,7 @@ FN_DECIMAL FastNoise::SingleCellular2Edge(FN_DECIMAL x, FN_DECIMAL y) const
     {
       for (int yi = yr - 1; yi <= yr + 1; yi++)
       {
-        unsigned char lutPos = Index2D_256(0, xi, yi);
+        unsigned char lutPos = Index2D_256(offset, xi, yi);
 
         FN_DECIMAL vecX = xi - x + CELL_2D_X[lutPos] * m_cellularJitter;
         FN_DECIMAL vecY = yi - y + CELL_2D_Y[lutPos] * m_cellularJitter;
@@ -2042,7 +2314,7 @@ FN_DECIMAL FastNoise::SingleCellular2Edge(FN_DECIMAL x, FN_DECIMAL y) const
     {
       for (int yi = yr - 1; yi <= yr + 1; yi++)
       {
-        unsigned char lutPos = Index2D_256(0, xi, yi);
+        unsigned char lutPos = Index2D_256(offset, xi, yi);
 
         FN_DECIMAL vecX = xi - x + CELL_2D_X[lutPos] * m_cellularJitter;
         FN_DECIMAL vecY = yi - y + CELL_2D_Y[lutPos] * m_cellularJitter;
@@ -2060,7 +2332,7 @@ FN_DECIMAL FastNoise::SingleCellular2Edge(FN_DECIMAL x, FN_DECIMAL y) const
     {
       for (int yi = yr - 1; yi <= yr + 1; yi++)
       {
-        unsigned char lutPos = Index2D_256(0, xi, yi);
+        unsigned char lutPos = Index2D_256(offset, xi, yi);
 
         FN_DECIMAL vecX = xi - x + CELL_2D_X[lutPos] * m_cellularJitter;
         FN_DECIMAL vecY = yi - y + CELL_2D_Y[lutPos] * m_cellularJitter;
@@ -2091,7 +2363,96 @@ FN_DECIMAL FastNoise::SingleCellular2Edge(FN_DECIMAL x, FN_DECIMAL y) const
     return 0;
   }
 }
+FN_DECIMAL FastNoise::GetCellularFractal(FN_DECIMAL x, FN_DECIMAL y) const
+{
+  x *= m_frequency;
+  y *= m_frequency;
 
+  switch (m_fractalType)
+  {
+  case FBM:
+    return SingleCellularFractalFBM(x, y);
+  case Billow:
+    return SingleCellularFractalBillow(x, y);
+  case RigidMulti:
+    return SingleCellularFractalRigidMulti(x, y);
+  default:
+    return 0;
+  }
+}
+FN_DECIMAL FastNoise::SingleCellularFractalFBM(FN_DECIMAL x, FN_DECIMAL y) const
+{
+  FN_DECIMAL sum = SingleCellularBase(m_perm[0], x, y);
+  FN_DECIMAL amp = 1;
+  int i = 0;
+
+  while (++i < m_octaves)
+  {
+    x *= m_lacunarity;
+    y *= m_lacunarity;
+
+    amp *= m_gain;
+    sum += SingleCellularBase(m_perm[i], x, y) * amp;
+  }
+
+  return sum * m_fractalBounding;
+}
+
+FN_DECIMAL FastNoise::SingleCellularFractalBillow(FN_DECIMAL x, FN_DECIMAL y) const
+{
+  FN_DECIMAL sum = FastAbs(SingleCellularBase(m_perm[0], x, y)) * 2 - 1;
+  FN_DECIMAL amp = 1;
+  int i = 0;
+
+  while (++i < m_octaves)
+  {
+    x *= m_lacunarity;
+    y *= m_lacunarity;
+
+    amp *= m_gain;
+    sum += (FastAbs(SingleCellularBase(m_perm[i], x, y)) * 2 - 1) * amp;
+  }
+
+  return sum * m_fractalBounding;
+}
+
+FN_DECIMAL FastNoise::SingleCellularFractalRigidMulti(FN_DECIMAL x, FN_DECIMAL y) const
+{
+  FN_DECIMAL sig = 1 - FastAbs(SingleCellularBase(m_perm[0], x, y));
+  sig *= sig;
+  FN_DECIMAL sum = sig * m_pSpectralWeights[0];
+  FN_DECIMAL amp = sig * m_gain;
+  if (amp > 1.0) {
+    amp = 1.0;
+  }
+  if (amp < 0.0) {
+    amp = 0.0;
+  }
+  int i = 0;
+
+  while (++i < m_octaves)
+  {
+    x *= m_lacunarity;
+    y *= m_lacunarity;
+
+    sig = 1 - FastAbs(SingleCellularBase(m_perm[i], x, y));
+    sig *= sig;
+    sig *= amp;
+
+    amp = sig * m_gain;
+    if (amp > 1.0) {
+      amp = 1.0;
+    }
+    if (amp < 0.0) {
+      amp = 0.0;
+    }
+
+
+    sum += (sig * m_pSpectralWeights[i]);
+  }
+
+  return (sum * 1.25) - 1.0;
+}
 void FastNoise::GradientPerturb(FN_DECIMAL& x, FN_DECIMAL& y, FN_DECIMAL& z) const
 {
   SingleGradientPerturb(0, m_gradientPerturbAmp, m_frequency, x, y, z);
