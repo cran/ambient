@@ -10,7 +10,11 @@ random_seed <- function(n = 1, seed = NULL) {
     set.seed(as.integer(seed[1]))
     on.exit(set.seed(next_seed))
   }
-  c(seed, sample(.Machine$integer.max, size = n))[seq_len(n)]
+  if (isTRUE(getOption('ambient.old_seed'))) {
+    sample(.Machine$integer.max, size = n)
+  } else {
+    c(seed, sample(.Machine$integer.max, size = n))[seq_len(n)]
+  }
 }
 
 check_dims <- function(x, y = NULL, z = NULL, t = NULL) {
@@ -20,6 +24,11 @@ check_dims <- function(x, y = NULL, z = NULL, t = NULL) {
   if (length(y) == 1) y <- rep(y, l)
   if (length(z) == 1) z <- rep(z, l)
   if (length(t) == 1) t <- rep(t, l)
+
+  if (!is.null(x)) x <- as.numeric(x)
+  if (!is.null(y)) y <- as.numeric(y)
+  if (!is.null(z)) z <- as.numeric(z)
+  if (!is.null(t)) t <- as.numeric(t)
 
   if (l != length(x)) stop('x must either be of length 1, or match the total length', call. = FALSE)
   if (!is.null(y) && l != length(y)) stop('y must either be of length 1, or match the total length', call. = FALSE)

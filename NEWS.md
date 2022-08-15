@@ -1,6 +1,10 @@
-# ambient 1.0.0
+# ambient 1.0.1
 
-# ambient 0.1.0.9000
+* Added `noise_blue()` for generating blue noise texture based on 
+  Void-and-cluster algorithm.
+* Move compiled code to cpp11
+
+# ambient 1.0.0
 
 * Added a new tidy interface to noise generation, which will be the new 
   recommended way of using ambient. The old array-based constructors will 

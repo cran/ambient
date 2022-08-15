@@ -32,9 +32,9 @@ noise_simplex <- function(dim, frequency = 0.01, interpolator = 'quintic',
                    fractal = 'fbm', octaves = 3, lacunarity = 2, gain = 0.5,
                    pertubation = 'none', pertubation_amplitude = 1) {
   fractal <- match.arg(fractal, fractals)
-  fractal <- match(fractal, fractals) - 1
+  fractal <- match(fractal, fractals) - 1L
   pertubation <- match.arg(pertubation, pertubations)
-  pertubation <- match(pertubation, pertubations) - 1
+  pertubation <- match(pertubation, pertubations) - 1L
 
   if (length(dim) == 2) {
     noise <- simplex_2d_c(dim[1], dim[2], seed = sample(.Machine$integer.max, size = 1),
@@ -68,6 +68,8 @@ noise_simplex <- function(dim, frequency = 0.01, interpolator = 'quintic',
 gen_simplex <- function(x, y = NULL, z = NULL, t = NULL, frequency = 1, seed = NULL, ...) {
   dims <- check_dims(x, y, z, t)
   if (is.null(seed)) seed <- random_seed()
+  frequency <- as.numeric(frequency)
+  seed <- as.integer(seed)
   if (is.null(t)) {
     if (is.null(z)) {
       gen_simplex2d_c(dims$x, dims$y, frequency, seed)

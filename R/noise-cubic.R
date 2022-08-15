@@ -28,9 +28,9 @@ noise_cubic <- function(dim, frequency = 0.01, fractal = 'fbm', octaves = 3,
                         lacunarity = 2, gain = 0.5, pertubation = 'none',
                         pertubation_amplitude = 1) {
   fractal <- match.arg(fractal, fractals)
-  fractal <- match(fractal, fractals) - 1
+  fractal <- match(fractal, fractals) - 1L
   pertubation <- match.arg(pertubation, pertubations)
-  pertubation <- match(pertubation, pertubations) - 1
+  pertubation <- match(pertubation, pertubations) - 1L
 
   if (length(dim) == 2) {
     noise <- cubic_2d_c(dim[1], dim[2], seed = sample(.Machine$integer.max, size = 1),
@@ -55,6 +55,8 @@ noise_cubic <- function(dim, frequency = 0.01, fractal = 'fbm', octaves = 3,
 gen_cubic <- function(x, y = NULL, z = NULL, frequency = 1, seed = NULL, ...) {
   dims <- check_dims(x, y, z)
   if (is.null(seed)) seed <- random_seed()
+  frequency <- as.numeric(frequency)
+  seed <- as.integer(seed)
   if (is.null(z)) {
     gen_cubic2d_c(dims$x, dims$y, frequency, seed)
   } else {

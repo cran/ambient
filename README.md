@@ -1,16 +1,19 @@
-<!-- README.md is generated from README.Rmd. Please edit that file -->
-ambient <img src="man/figures/logo.png" align="right" />
-========================================================
 
-[![Travis-CI Build
-Status](https://travis-ci.org/thomasp85/ambient.svg?branch=master)](https://travis-ci.org/thomasp85/ambient)
-[![AppVeyor Build
-Status](https://ci.appveyor.com/api/projects/status/github/thomasp85/ambient?branch=master&svg=true)](https://ci.appveyor.com/project/thomasp85/ambient)
-[![CRAN\_Release\_Badge](http://www.r-pkg.org/badges/version-ago/ambient)](https://CRAN.R-project.org/package=ambient)
-[![CRAN\_Download\_Badge](http://cranlogs.r-pkg.org/badges/ambient)](https://CRAN.R-project.org/package=ambient)
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+# ambient <img src="man/figures/logo.png" align="right" />
+
+<!-- badges: start -->
+
+[![R-CMD-check](https://github.com/thomasp85/ambient/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/thomasp85/ambient/actions/workflows/R-CMD-check.yaml)
+[![CRAN_Release_Badge](http://www.r-pkg.org/badges/version-ago/ambient)](https://CRAN.R-project.org/package=ambient)
+[![CRAN_Download_Badge](http://cranlogs.r-pkg.org/badges/ambient)](https://CRAN.R-project.org/package=ambient)
+[![Codecov test
+coverage](https://codecov.io/gh/thomasp85/ambient/branch/main/graph/badge.svg)](https://app.codecov.io/gh/thomasp85/ambient?branch=main)
+<!-- badges: end -->
 
 `ambient` is a an R package that provides access to the
-[FastNoise](https://github.com/Auburns/FastNoise) C++ library for
+[FastNoise](https://github.com/Auburn/FastNoiseLite) C++ library for
 generating noise. As such it provides fast generation of perlin, value,
 cubic, and worley noise in 2 and 3 dimensions, as well as simplex and
 white noise in 2, 3, and 4 dimensions. Further, it provides pattern
@@ -24,8 +27,7 @@ pertubed.
 There’s not much more to it. If you are in need of a noise generator
 `ambient` is your friend, if not you probably shouldn’t care.
 
-Installation
-------------
+## Installation
 
 ambient can be installed from CRAN using `install.packages('ambient')`,
 or you may get the development version from github using devtools:
@@ -35,8 +37,7 @@ or you may get the development version from github using devtools:
 devtools::install_github('thomasp85/ambient')
 ```
 
-Examples
---------
+## Examples
 
 ambient provides a direct interface to the FastNoise functions by
 requesting a matrix/array of noise values, with a range of settings for
@@ -49,7 +50,7 @@ simplex <- noise_simplex(c(500, 500), pertubation = 'normal',
 plot(as.raster(normalise(simplex)))
 ```
 
-![](man/figures/README-unnamed-chunk-3-1.png)
+![](man/figures/README-unnamed-chunk-3-1.png)<!-- -->
 
 much more powerful, however, is the tidy interface that allows full
 control of how the values should be calculated and combined:
@@ -70,10 +71,9 @@ long_grid(x = seq(0, 10, length.out = 1000),
   plot(full)
 ```
 
-![](man/figures/README-unnamed-chunk-4-1.png)
+![](man/figures/README-unnamed-chunk-4-1.png)<!-- -->
 
-Code of Conduct
----------------
+## Code of Conduct
 
 Please note that the ‘ambient’ project is released with a [Contributor
 Code of
