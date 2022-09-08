@@ -1,8 +1,8 @@
-589606fdf4c97cb1d1774402b5137ba7 *DESCRIPTION
+1e56c578d9bdea686a31e25916e51a24 *DESCRIPTION
 928d886d4e8454f3db823a37d4de465f *LICENSE
 ea9be752fb74ea9121287aa355ca3ddd *LICENSE.note
 f8a0da684dcba1d19518290db14a5969 *NAMESPACE
-4365dc00de0d44adbf6841db9758ef8d *NEWS.md
+fde1d473552d5afd5493869471908ca5 *NEWS.md
 12f71bbf56f31b36fe6a36cc90f95808 *R/aaa.R
 485855a947f83ebdaa06329d7810dd4f *R/ambient-package.R
 0fc1514835f86e37c6a5ce073ff4109c *R/cpp11.R
@@ -53,7 +53,7 @@ af540152311579b5a3481fa4b98f856d *man/noise_perlin.Rd
 df8ea61c96e5ada94be9c1d72fdc2b9a *man/noise_worley.Rd
 8e4562f89142b5a66ce94be15c7d477c *man/ridged.Rd
 96c8f9d5aca354a0dc18da2db9d67780 *man/trans_affine.Rd
-14325c9e49c7e36cd046d278c63d3ad9 *src/FastNoise.cpp
+91e5bac073fe4f338ec783a3fbacb409 *src/FastNoise.cpp
 c152ebe33b211907331515bf1452c64c *src/FastNoise.h
 e3d3cb360fbfdb3c6974e14eb5f09870 *src/Makevars
 61e0b43c7bd75d78d00d752155cb0a13 *src/cpp11.cpp

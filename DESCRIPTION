@@ -1,7 +1,7 @@
 Package: ambient
 Type: Package
 Title: A Generator of Multidimensional Noise
-Version: 1.0.1
+Version: 1.0.2
 Authors@R: 
     c(person(given = "Thomas Lin",
              family = "Pedersen",
@@ -31,9 +31,9 @@ URL: https://ambient.data-imaginist.com,
 BugReports: https://github.com/thomasp85/ambient/issues
 Suggests: covr
 NeedsCompilation: yes
-Packaged: 2022-08-15 12:44:53 UTC; thomas
+Packaged: 2022-09-05 07:17:52 UTC; thomas
 Author: Thomas Lin Pedersen [cre, aut]
     (<https://orcid.org/0000-0002-5147-4711>),
   Jordan Peck [aut] (Developer of FastNoise)
 Repository: CRAN
-Date/Publication: 2022-08-15 13:40:07 UTC
+Date/Publication: 2022-09-08 11:12:56 UTC
